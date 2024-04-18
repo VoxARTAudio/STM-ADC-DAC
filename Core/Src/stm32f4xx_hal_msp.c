@@ -23,8 +23,6 @@
 /* USER CODE BEGIN Includes */
 
 /* USER CODE END Includes */
-extern DMA_HandleTypeDef hdma_adc3;
-
 extern DMA_HandleTypeDef hdma_spi2_tx;
 
 /* Private typedef -----------------------------------------------------------*/
@@ -108,28 +106,6 @@ void HAL_ADC_MspInit(ADC_HandleTypeDef* hadc)
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     HAL_GPIO_Init(Audio_IN_GPIO_Port, &GPIO_InitStruct);
 
-    /* ADC3 DMA Init */
-    /* ADC3 Init */
-    hdma_adc3.Instance = DMA2_Stream0;
-    hdma_adc3.Init.Channel = DMA_CHANNEL_2;
-    hdma_adc3.Init.Direction = DMA_PERIPH_TO_MEMORY;
-    hdma_adc3.Init.PeriphInc = DMA_PINC_DISABLE;
-    hdma_adc3.Init.MemInc = DMA_MINC_ENABLE;
-    hdma_adc3.Init.PeriphDataAlignment = DMA_PDATAALIGN_HALFWORD;
-    hdma_adc3.Init.MemDataAlignment = DMA_MDATAALIGN_HALFWORD;
-    hdma_adc3.Init.Mode = DMA_CIRCULAR;
-    hdma_adc3.Init.Priority = DMA_PRIORITY_LOW;
-    hdma_adc3.Init.FIFOMode = DMA_FIFOMODE_ENABLE;
-    hdma_adc3.Init.FIFOThreshold = DMA_FIFO_THRESHOLD_FULL;
-    hdma_adc3.Init.MemBurst = DMA_MBURST_SINGLE;
-    hdma_adc3.Init.PeriphBurst = DMA_PBURST_SINGLE;
-    if (HAL_DMA_Init(&hdma_adc3) != HAL_OK)
-    {
-      Error_Handler();
-    }
-
-    __HAL_LINKDMA(hadc,DMA_Handle,hdma_adc3);
-
   /* USER CODE BEGIN ADC3_MspInit 1 */
 
   /* USER CODE END ADC3_MspInit 1 */
@@ -158,8 +134,6 @@ void HAL_ADC_MspDeInit(ADC_HandleTypeDef* hadc)
     */
     HAL_GPIO_DeInit(Audio_IN_GPIO_Port, Audio_IN_Pin);
 
-    /* ADC3 DMA DeInit */
-    HAL_DMA_DeInit(hadc->DMA_Handle);
   /* USER CODE BEGIN ADC3_MspDeInit 1 */
 
   /* USER CODE END ADC3_MspDeInit 1 */
@@ -420,6 +394,56 @@ void HAL_I2S_MspDeInit(I2S_HandleTypeDef* hi2s)
 }
 
 /**
+* @brief TIM_Base MSP Initialization
+* This function configures the hardware resources used in this example
+* @param htim_base: TIM_Base handle pointer
+* @retval None
+*/
+void HAL_TIM_Base_MspInit(TIM_HandleTypeDef* htim_base)
+{
+  if(htim_base->Instance==TIM3)
+  {
+  /* USER CODE BEGIN TIM3_MspInit 0 */
+
+  /* USER CODE END TIM3_MspInit 0 */
+    /* Peripheral clock enable */
+    __HAL_RCC_TIM3_CLK_ENABLE();
+    /* TIM3 interrupt Init */
+    HAL_NVIC_SetPriority(TIM3_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(TIM3_IRQn);
+  /* USER CODE BEGIN TIM3_MspInit 1 */
+
+  /* USER CODE END TIM3_MspInit 1 */
+  }
+
+}
+
+/**
+* @brief TIM_Base MSP De-Initialization
+* This function freeze the hardware resources used in this example
+* @param htim_base: TIM_Base handle pointer
+* @retval None
+*/
+void HAL_TIM_Base_MspDeInit(TIM_HandleTypeDef* htim_base)
+{
+  if(htim_base->Instance==TIM3)
+  {
+  /* USER CODE BEGIN TIM3_MspDeInit 0 */
+
+  /* USER CODE END TIM3_MspDeInit 0 */
+    /* Peripheral clock disable */
+    __HAL_RCC_TIM3_CLK_DISABLE();
+
+    /* TIM3 interrupt DeInit */
+    HAL_NVIC_DisableIRQ(TIM3_IRQn);
+  /* USER CODE BEGIN TIM3_MspDeInit 1 */
+
+  /* USER CODE END TIM3_MspDeInit 1 */
+  }
+
+}
+
+/**
 * @brief UART MSP Initialization
 * This function configures the hardware resources used in this example
 * @param huart: UART handle pointer
@@ -501,7 +525,6 @@ static void HAL_FSMC_MspInit(void){
 
   /** FSMC GPIO Configuration
   PD7   ------> FSMC_NE1
-  PG12   ------> FSMC_NE4
   PG10   ------> FSMC_NE3
   PD0   ------> FSMC_D2
   PG9   ------> FSMC_NE2
@@ -511,7 +534,6 @@ static void HAL_FSMC_MspInit(void){
   PF0   ------> FSMC_A0
   PF2   ------> FSMC_A2
   PF1   ------> FSMC_A1
-  PF3   ------> FSMC_A3
   PD15   ------> FSMC_D1
   PD14   ------> FSMC_D0
   PE13   ------> FSMC_D10
@@ -536,14 +558,14 @@ static void HAL_FSMC_MspInit(void){
   GPIO_InitStruct.Alternate = GPIO_AF12_FSMC;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
-  GPIO_InitStruct.Pin = GPIO_PIN_12|GPIO_PIN_10|GPIO_PIN_9;
+  GPIO_InitStruct.Pin = GPIO_PIN_10|GPIO_PIN_9;
   GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
   GPIO_InitStruct.Alternate = GPIO_AF12_FSMC;
   HAL_GPIO_Init(GPIOG, &GPIO_InitStruct);
 
-  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_2|GPIO_PIN_1|GPIO_PIN_3;
+  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_2|GPIO_PIN_1;
   GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
@@ -589,7 +611,6 @@ static void HAL_FSMC_MspDeInit(void){
 
   /** FSMC GPIO Configuration
   PD7   ------> FSMC_NE1
-  PG12   ------> FSMC_NE4
   PG10   ------> FSMC_NE3
   PD0   ------> FSMC_D2
   PG9   ------> FSMC_NE2
@@ -599,7 +620,6 @@ static void HAL_FSMC_MspDeInit(void){
   PF0   ------> FSMC_A0
   PF2   ------> FSMC_A2
   PF1   ------> FSMC_A1
-  PF3   ------> FSMC_A3
   PD15   ------> FSMC_D1
   PD14   ------> FSMC_D0
   PE13   ------> FSMC_D10
@@ -619,9 +639,9 @@ static void HAL_FSMC_MspDeInit(void){
                           |GPIO_PIN_4|GPIO_PIN_15|GPIO_PIN_14|GPIO_PIN_10
                           |GPIO_PIN_9|GPIO_PIN_8);
 
-  HAL_GPIO_DeInit(GPIOG, GPIO_PIN_12|GPIO_PIN_10|GPIO_PIN_9);
+  HAL_GPIO_DeInit(GPIOG, GPIO_PIN_10|GPIO_PIN_9);
 
-  HAL_GPIO_DeInit(GPIOF, GPIO_PIN_0|GPIO_PIN_2|GPIO_PIN_1|GPIO_PIN_3);
+  HAL_GPIO_DeInit(GPIOF, GPIO_PIN_0|GPIO_PIN_2|GPIO_PIN_1);
 
   HAL_GPIO_DeInit(GPIOE, GPIO_PIN_13|GPIO_PIN_8|GPIO_PIN_9|GPIO_PIN_11
                           |GPIO_PIN_14|GPIO_PIN_7|GPIO_PIN_10|GPIO_PIN_12

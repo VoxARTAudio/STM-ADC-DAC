@@ -56,7 +56,7 @@ extern "C" {
 void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
-
+void MY_ADC_Init(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/

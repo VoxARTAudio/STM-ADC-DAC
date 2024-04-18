@@ -30,7 +30,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define BUFFER_SIZE 128
+#define BUFFER_SIZE 4096
 #define INT16_TO_FLOAT 1.0f / (32768.0f)
 #define FLOAT_TO_INT16 32768.0f
 /* USER CODE END PD */
@@ -42,7 +42,6 @@
 
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc3;
-DMA_HandleTypeDef hdma_adc3;
 
 DAC_HandleTypeDef hdac;
 
@@ -51,22 +50,27 @@ I2C_HandleTypeDef hi2c1;
 I2S_HandleTypeDef hi2s2;
 DMA_HandleTypeDef hdma_spi2_tx;
 
+TIM_HandleTypeDef htim3;
+
 UART_HandleTypeDef huart3;
 
 SRAM_HandleTypeDef hsram1;
 SRAM_HandleTypeDef hsram2;
 SRAM_HandleTypeDef hsram3;
-SRAM_HandleTypeDef hsram4;
 
 /* USER CODE BEGIN PV */
 int16_t adcData[BUFFER_SIZE];
-int16_t dacData[BUFFER_SIZE];
+//int16_t dacData[BUFFER_SIZE];
 
-static volatile int16_t *inBuffPtr;
-static volatile int16_t *outBuffPtr = &dacData[0];
+//static volatile int16_t *inBuffPtr;
+//static volatile int16_t *outBuffPtr = &dacData[0];
 
 uint8_t dataReady = 0;
 int adcConvComplete = 0;
+int i = 0;
+
+__IO uint16_t AD_RES = 0;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -79,61 +83,65 @@ static void MX_I2S2_Init(void);
 static void MX_FSMC_Init(void);
 static void MX_USART3_UART_Init(void);
 static void MX_DAC_Init(void);
+static void MX_TIM3_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-void BSP_AUDIO_OUT_HalfTransfer_CallBack(void) {
-	outBuffPtr = &dacData[0];
-	dataReady = 1;
-}
+//void BSP_AUDIO_OUT_HalfTransfer_CallBack(void) {
+//	outBuffPtr = &dacData[0];
+//	dataReady = 1;
+//}
 
-void BSP_AUDIO_OUT_TransferComplete_CallBack(void) {
-	outBuffPtr = &dacData[BUFFER_SIZE/2];
-	dataReady = 1;
-}
+//void BSP_AUDIO_OUT_TransferComplete_CallBack(void) {
+//	outBuffPtr = &dacData[BUFFER_SIZE/2];
+//	dataReady = 1;
+//}
 
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
-	adcConvComplete = 1;
+	AD_RES = HAL_ADC_GetValue(&hadc3);
+	//adcData[i] = HAL_ADC_GetValue(&hadc3);
+	//i = (i+1) % BUFFER_SIZE;
+	//adcConvComplete = 1;
 	//inBuffPtr = &adcData[0];
 }
-	
-void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef* hadc) {
-	//inBuffPtr = &adcData[BUFFER_SIZE/2];
-}
+//	
+//void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef* hadc) {
+//	//inBuffPtr = &adcData[BUFFER_SIZE/2];
+//}
 
-void processData() {
-	static float leftIn, leftOut, rightIn, rightOut;
-	
-	for(uint8_t n = 0; n < (BUFFER_SIZE/2) - 1; n+= 2) {
-		/* Left */
-		leftIn = INT16_TO_FLOAT*inBuffPtr[n];
-		if(leftIn > 1.0f) {
-			leftIn -= 2.0f;
-		}
-		
-		/* DSP left channel */
-		leftOut = leftIn;
-		
-		/* TO DMA */
-		outBuffPtr[n] = (int16_t)(FLOAT_TO_INT16 * leftOut);
-		
-		/* Right */
-		rightIn = INT16_TO_FLOAT * inBuffPtr[n+1];
-		if(rightIn > 1.0f) {
-			rightIn -= 2.0f;
-		}
-		
-		/* DSP right channel */
-		rightOut = rightIn;
-		
-		/* TO DMA */
-		outBuffPtr[n+1] = (int16_t)(FLOAT_TO_INT16 * rightOut);
-	}
-	dataReady = 0;
-}
+//void processData() {
+//	static float leftIn, leftOut, rightIn, rightOut;
+//	
+//	for(uint8_t n = 0; n < (BUFFER_SIZE/2) - 1; n+= 2) {
+//		/* Left */
+//		leftIn = INT16_TO_FLOAT*inBuffPtr[n];
+//		if(leftIn > 1.0f) {
+//			leftIn -= 2.0f;
+//		}
+//		
+//		/* DSP left channel */
+//		leftOut = leftIn;
+//		
+//		/* TO DMA */
+//		outBuffPtr[n] = (int16_t)(FLOAT_TO_INT16 * leftOut);
+//		
+//		/* Right */
+//		rightIn = INT16_TO_FLOAT * inBuffPtr[n+1];
+//		if(rightIn > 1.0f) {
+//			rightIn -= 2.0f;
+//		}
+//		
+//		/* DSP right channel */
+//		rightOut = rightIn;
+//		
+//		/* TO DMA */
+//		outBuffPtr[n+1] = (int16_t)(FLOAT_TO_INT16 * rightOut);
+//	}
+//	dataReady = 0;
+//}
 /* USER CODE END 0 */
 
 /**
@@ -172,26 +180,29 @@ int main(void)
   SystemClock_Config();
 
   /* USER CODE BEGIN SysInit */
-	
+	MY_ADC_Init();
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_DMA_Init();
-  MX_ADC3_Init();
+  //MX_ADC3_Init();
   MX_I2C1_Init();
   MX_I2S2_Init();
   MX_FSMC_Init();
   MX_USART3_UART_Init();
   MX_DAC_Init();
+ // MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
 	
-	BSP_AUDIO_OUT_Init(OUTPUT_DEVICE_HEADPHONE, 80, 48000); 
+	//BSP_AUDIO_OUT_Init(OUTPUT_DEVICE_HEADPHONE, 75, 48000); 
 	
-	HAL_Delay(50);
+	//HAL_TIM_Base_Start(&htim3); // Start Timer3 (Trigger Source For ADC1)
+	
+	//BSP_AUDIO_OUT_Play((uint16_t*)&adcData[0], BUFFER_SIZE);
 	
 	//HAL_StatusTypeDef i2sDMAStatus = HAL_I2S_Transmit_DMA(&hi2s2, (uint16_t*)dacData, BUFFER_SIZE);
-	HAL_StatusTypeDef adcDMAStatus = HAL_ADC_Start_DMA(&hadc3, (uint32_t *)adcData, BUFFER_SIZE);
+	//HAL_StatusTypeDef adcDMAStatus = HAL_ADC_Start_DMA(&hadc3, (uint32_t *)adcData, BUFFER_SIZE);
 	
 	//HAL_StatusTypeDef i2sDMAStatus = HAL_I2SEx_TransmitReceive_DMA(&hi2s2, (uint16_t*)dacData, (uint16_t*)adcData, BUFFER_SIZE);
 	
@@ -203,15 +214,15 @@ int main(void)
 //	} else {
 //		BSP_LED_On(LED1);
 //	}
-	
-	if(adcDMAStatus != HAL_OK) {
-		BSP_LED_On(LED3);
-		while(1) {};
-	} else {
-		BSP_LED_Off(LED1);
-		BSP_LED_On(LED2);
-	}
-	
+//	
+//	if(adcDMAStatus != HAL_OK) {
+//		BSP_LED_On(LED3);
+//		while(1) {};
+//	} else {
+//		BSP_LED_Off(LED1);
+//		BSP_LED_On(LED2);
+//	}
+//	
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -219,10 +230,8 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
-		if(adcConvComplete) {
-			inBuffPtr = &adcData[0];
-			adcConvComplete = 0;
-		}
+		BSP_LCD_DisplayStringAtLine(5, (uint8_t *)AD_RES);
+
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
@@ -298,12 +307,12 @@ static void MX_ADC3_Init(void)
   hadc3.Init.ScanConvMode = DISABLE;
   hadc3.Init.ContinuousConvMode = ENABLE;
   hadc3.Init.DiscontinuousConvMode = DISABLE;
-  hadc3.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
-  hadc3.Init.ExternalTrigConv = ADC_EXTERNALTRIGCONV_T1_CC1;
+  hadc3.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_RISING;
+  hadc3.Init.ExternalTrigConv = ADC_EXTERNALTRIGCONV_T3_CC1;
   hadc3.Init.DataAlign = ADC_DATAALIGN_RIGHT;
   hadc3.Init.NbrOfConversion = 1;
-  hadc3.Init.DMAContinuousRequests = ENABLE;
-  hadc3.Init.EOCSelection = DISABLE;
+  hadc3.Init.DMAContinuousRequests = DISABLE;
+  hadc3.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
   if (HAL_ADC_Init(&hadc3) != HAL_OK)
   {
     Error_Handler();
@@ -433,6 +442,51 @@ static void MX_I2S2_Init(void)
 }
 
 /**
+  * @brief TIM3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM3_Init(void)
+{
+
+  /* USER CODE BEGIN TIM3_Init 0 */
+
+  /* USER CODE END TIM3_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM3_Init 1 */
+
+  /* USER CODE END TIM3_Init 1 */
+  htim3.Instance = TIM3;
+  htim3.Init.Prescaler = 0;
+  htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim3.Init.Period = 1679;
+  htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
+  if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim3, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM3_Init 2 */
+
+  /* USER CODE END TIM3_Init 2 */
+
+}
+
+/**
   * @brief USART3 Initialization Function
   * @param None
   * @retval None
@@ -473,15 +527,11 @@ static void MX_DMA_Init(void)
 
   /* DMA controller clock enable */
   __HAL_RCC_DMA1_CLK_ENABLE();
-  __HAL_RCC_DMA2_CLK_ENABLE();
 
   /* DMA interrupt init */
   /* DMA1_Stream4_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Stream4_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA1_Stream4_IRQn);
-  /* DMA2_Stream0_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA2_Stream0_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMA2_Stream0_IRQn);
 
 }
 
@@ -635,47 +685,57 @@ static void MX_FSMC_Init(void)
     Error_Handler( );
   }
 
-  /** Perform the SRAM4 memory initialization sequence
-  */
-  hsram4.Instance = FSMC_NORSRAM_DEVICE;
-  hsram4.Extended = FSMC_NORSRAM_EXTENDED_DEVICE;
-  /* hsram4.Init */
-  hsram4.Init.NSBank = FSMC_NORSRAM_BANK4;
-  hsram4.Init.DataAddressMux = FSMC_DATA_ADDRESS_MUX_DISABLE;
-  hsram4.Init.MemoryType = FSMC_MEMORY_TYPE_SRAM;
-  hsram4.Init.MemoryDataWidth = FSMC_NORSRAM_MEM_BUS_WIDTH_16;
-  hsram4.Init.BurstAccessMode = FSMC_BURST_ACCESS_MODE_DISABLE;
-  hsram4.Init.WaitSignalPolarity = FSMC_WAIT_SIGNAL_POLARITY_LOW;
-  hsram4.Init.WrapMode = FSMC_WRAP_MODE_DISABLE;
-  hsram4.Init.WaitSignalActive = FSMC_WAIT_TIMING_BEFORE_WS;
-  hsram4.Init.WriteOperation = FSMC_WRITE_OPERATION_ENABLE;
-  hsram4.Init.WaitSignal = FSMC_WAIT_SIGNAL_DISABLE;
-  hsram4.Init.ExtendedMode = FSMC_EXTENDED_MODE_DISABLE;
-  hsram4.Init.AsynchronousWait = FSMC_ASYNCHRONOUS_WAIT_DISABLE;
-  hsram4.Init.WriteBurst = FSMC_WRITE_BURST_DISABLE;
-  hsram4.Init.PageSize = FSMC_PAGE_SIZE_NONE;
-  /* Timing */
-  Timing.AddressSetupTime = 15;
-  Timing.AddressHoldTime = 15;
-  Timing.DataSetupTime = 255;
-  Timing.BusTurnAroundDuration = 15;
-  Timing.CLKDivision = 16;
-  Timing.DataLatency = 17;
-  Timing.AccessMode = FSMC_ACCESS_MODE_A;
-  /* ExtTiming */
-
-  if (HAL_SRAM_Init(&hsram4, &Timing, NULL) != HAL_OK)
-  {
-    Error_Handler( );
-  }
-
   /* USER CODE BEGIN FSMC_Init 2 */
 
   /* USER CODE END FSMC_Init 2 */
 }
 
 /* USER CODE BEGIN 4 */
+void MY_ADC_Init() {
+	/*##-1- Configure the ADC peripheral #######################################*/
+  hadc3.Instance          = ADC3;
+  
+  hadc3.Init.ClockPrescaler = ADC_CLOCKPRESCALER_PCLK_DIV2;
+  hadc3.Init.Resolution = ADC_RESOLUTION_12B;
+  hadc3.Init.ScanConvMode = DISABLE;
+  hadc3.Init.ContinuousConvMode = ENABLE;
+  hadc3.Init.DiscontinuousConvMode = DISABLE;
+  hadc3.Init.NbrOfDiscConversion = 0;
+  hadc3.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+  hadc3.Init.ExternalTrigConv = ADC_EXTERNALTRIGCONV_T1_CC1;
+  hadc3.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+  hadc3.Init.NbrOfConversion = 1;
+  hadc3.Init.DMAContinuousRequests = DISABLE;
+  hadc3.Init.EOCSelection = DISABLE;
+      
+  if(HAL_ADC_Init(&hadc3) != HAL_OK)
+  {
+    /* Initialization Error */
+    Error_Handler();
+  }
+  
+  /*##-2- Configure ADC regular channel ######################################*/  
+	ADC_ChannelConfTypeDef sConfig;
+	
+  sConfig.Channel = ADC_CHANNEL_8;
+  sConfig.Rank = 1;
+  sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
+  sConfig.Offset = 0;
+  
+  if(HAL_ADC_ConfigChannel(&hadc3, &sConfig) != HAL_OK)
+  {
+    /* Channel Configuration Error */
+    Error_Handler();
+  }
 
+  /*##-3- Start the conversion process and enable interrupt ##################*/  
+  if(HAL_ADC_Start_IT(&hadc3) != HAL_OK)
+  {
+    /* Start Conversation Error */
+    Error_Handler();
+  }
+  
+}
 /* USER CODE END 4 */
 
 /**
